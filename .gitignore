@@ -1,0 +1,19 @@
+# 数据与运行产物
+data/
+reports/*
+!reports/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 本地覆盖配置
+config.local.toml

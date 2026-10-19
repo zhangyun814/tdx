@@ -1,0 +1,58 @@
+# ============================================================================
+# A股多策略回测 · 配置
+# 改完直接跑：python run.py all
+# 命令行参数优先级高于本文件（如 --start / --regime-window）
+# ============================================================================
+
+[data]
+# westock-data 数据源目录（包含 scripts/index.js）。
+# 留空 = 自动探测 ~/.workbuddy/plugins 下的 westock-data。
+# 也可以设环境变量 WESTOCK_DATA_DIR 覆盖。
+westock_dir = ""
+# node 可执行文件，留空 = 自动探测（which node → WorkBuddy 托管运行时）
+node_bin = ""
+
+# 股票池：用哪个指数的成分股
+universe_index = "sh000300"
+# 单只股票最多拉多少根日线（1300 根 ≈ 5 年，够覆盖 4 年回测 + 预热）
+max_bars = 1300
+# 少于该根数直接剔除（次新股指标不完整）
+min_bars = 250
+# true = 每次都重新下载（默认 false，已有文件跳过，增量更新更快）
+refresh = false
+
+[backtest]
+initial_cash = 1000000.0
+# 最多同时持有几只
+max_positions = 5
+# 单票目标权重（等权 20%）
+weight = 0.20
+# 双边佣金 3bp
+buy_comm = 0.0003
+sell_comm = 0.0003
+# 卖出印花税 5bp
+sell_tax = 0.0005
+# 一手 = 100 股
+lot = 100
+
+# 评估起点：此前的数据只用于算指标，不产生交易
+eval_start = "2022-07-01"
+# 评估终点：留空 = 数据最后一个交易日（推荐，每次跑都是最新）
+eval_end = ""
+
+[regime]
+# 市场状态：基准指数收盘价 > 自身 N 日均线 → ON（允许开新仓）
+regime_window = 60
+
+[ranking]
+# 后验收益观察窗口（交易日），用于检验排序规则
+fwd_days = 20
+# 分层检验时，只统计「当日候选数 >= 该值」的交易日（控制样本偏差）
+min_candidates = 15
+# 「随机」对照组的抽样次数（取平均，次数越多越稳）
+random_trials = 200
+
+[output]
+# 留空 = 项目下 data/ 与 reports/
+data_dir = ""
+reports_dir = ""
