@@ -10,6 +10,13 @@ python run.py all
 
 跑完打开 `reports/regime_report.html`（策略对比）与 `reports/signal_board.html`（今日信号）。
 
+仓库地址：<https://github.com/zhangyun814/tdx>
+
+```bash
+git clone https://github.com/zhangyun814/tdx.git
+cd tdx
+```
+
 ---
 
 ## 1. 环境要求
