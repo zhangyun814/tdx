@@ -5,7 +5,7 @@
 **每天只想知道「今天买哪几只」：**
 
 ```bash
-python run.py pick
+python3 run.py pick
 ```
 
 补数据（只补落后的票）→ 算当日信号 → 终端直接打印每策略前 5 名 → 刷新看板。约 6 秒（有新交易日时约 1 分钟）。
@@ -14,7 +14,7 @@ python run.py pick
 **想重新回测一遍（改参数、看长期表现）：**
 
 ```bash
-python run.py all
+python3 run.py all
 ```
 
 跑完打开 `reports/regime_report.html`（策略对比）与 `reports/signal_board.html`（今日信号）。
@@ -35,9 +35,9 @@ cd tdx
 - 数据源：`westock-data` 命令行工具（提供 `scripts/index.js` 的那一层目录）
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python run.py doctor          # 自检：数据源、node、股票池、数据目录
+python3 run.py doctor          # 自检：数据源、node、股票池、数据目录
 ```
 
 `doctor` 会打印数据源路径与全部生效参数。如果数据源没被自动找到，在 `config.toml` 里指定：
@@ -56,27 +56,27 @@ node_bin    = "/path/to/node"
 
 | 命令 | 作用 | 耗时（300 只 / 4 年） |
 |---|---|---|
-| `python run.py pick` | **只选股**：补数据 + 当日候选 + 看板 | 约 6 秒（有新交易日约 1 分钟） |
-| `python run.py all` | 抓数 + 回测 + 检验 + 信号 + 报告，全流程 | 首次约 4 分钟（含下载），之后约 10 秒 |
-| `python run.py fetch` | 只更新数据（成分股 + 日线 + 合并面板） | 增量约 10 秒；`--refresh` 全量约 3 分钟 |
-| `python run.py backtest` | 只用本地数据重跑回测 | 约 7 秒 |
-| `python run.py analysis` | 排序规则有效性检验 | 约 4 秒 |
-| `python run.py signal` | 当日信号快照（md + json） | 约 2 秒 |
-| `python run.py report` | 渲染对比报告（仪表盘 + 3 张图） | 约 3 秒 |
-| `python run.py board` | 渲染信号看板 | 约 1 秒 |
-| `python run.py history` | 查看历次运行摘要（年化 / 回撤 / 信号数变化） | 即时 |
-| `python run.py doctor` | 环境自检 | 即时 |
+| `python3 run.py pick` | **只选股**：补数据 + 当日候选 + 看板 | 约 6 秒（有新交易日约 1 分钟） |
+| `python3 run.py all` | 抓数 + 回测 + 检验 + 信号 + 报告，全流程 | 首次约 4 分钟（含下载），之后约 10 秒 |
+| `python3 run.py fetch` | 只更新数据（成分股 + 日线 + 合并面板） | 增量约 10 秒；`--refresh` 全量约 3 分钟 |
+| `python3 run.py backtest` | 只用本地数据重跑回测 | 约 7 秒 |
+| `python3 run.py analysis` | 排序规则有效性检验 | 约 4 秒 |
+| `python3 run.py signal` | 当日信号快照（md + json） | 约 2 秒 |
+| `python3 run.py report` | 渲染对比报告（仪表盘 + 3 张图） | 约 3 秒 |
+| `python3 run.py board` | 渲染信号看板 | 约 1 秒 |
+| `python3 run.py history` | 查看历次运行摘要（年化 / 回撤 / 信号数变化） | 即时 |
+| `python3 run.py doctor` | 环境自检 | 即时 |
 
 常用参数（对所有命令生效）：
 
 ```bash
-python run.py all --start 2023-01-01 --end 2025-12-31   # 改评估区间
-python run.py all --index sh000905                      # 换成中证500 成分股
-python run.py backtest --max-positions 8                # 改持仓上限
-python run.py backtest --regime-window 120              # 改市场状态均线
-python run.py fetch --refresh                           # 强制全量重下（约 3 分钟）
-python run.py all --skip-fetch                          # 跳过抓数，直接用本地数据
-python run.py all --no-archive                          # 不留历史快照，只更新最新结果
+python3 run.py all --start 2023-01-01 --end 2025-12-31   # 改评估区间
+python3 run.py all --index sh000905                      # 换成中证500 成分股
+python3 run.py backtest --max-positions 8                # 改持仓上限
+python3 run.py backtest --regime-window 120              # 改市场状态均线
+python3 run.py fetch --refresh                           # 强制全量重下（约 3 分钟）
+python3 run.py all --skip-fetch                          # 跳过抓数，直接用本地数据
+python3 run.py all --no-archive                          # 不留历史快照，只更新最新结果
 ```
 
 > 数据每天都在变，`eval_end` 默认取「数据里最后一个交易日」，所以不需要手动改日期。
@@ -84,9 +84,9 @@ python run.py all --no-archive                          # 不留历史快照，�
 ### 只想选股，不想回测
 
 ```bash
-python run.py pick                 # 补数据 → 出信号 → 印候选 → 刷看板
-python run.py pick --skip-fetch    # 数据已经是最新的，跳过抓数（约 4 秒）
-python run.py pick --index sh000905  # 换池子（中证500）
+python3 run.py pick                 # 补数据 → 出信号 → 印候选 → 刷看板
+python3 run.py pick --skip-fetch    # 数据已经是最新的，跳过抓数（约 4 秒）
+python3 run.py pick --index sh000905  # 换池子（中证500）
 ```
 
 终端会直接打出来：
@@ -122,7 +122,7 @@ S2 唐奇安通道突破　触发 28 只，最多买 5 只
 （数据截至日、市场状态、五策略平均年化/回撤/夏普、最优策略、信号数）：
 
 ```bash
-python run.py history          # 打印历史表，看每次跑出来的东西怎么变的
+python3 run.py history          # 打印历史表，看每次跑出来的东西怎么变的
 ```
 
 ```
@@ -313,7 +313,7 @@ a-share-quant/
 在 `config.toml` 里填 `westock_dir`，指向包含 `scripts/index.js` 的目录（不是 `scripts/` 本身）。
 
 **Q：下载有失败**
-程序会自动重试一次，并在结尾列出失败代码。失败通常是接口限流，重跑 `python run.py fetch` 即可（已成功的文件会跳过）。确实拿不到的可以在 `data/universe.csv` 里删掉。
+程序会自动重试一次，并在结尾列出失败代码。失败通常是接口限流，重跑 `python3 run.py fetch` 即可（已成功的文件会跳过）。确实拿不到的可以在 `data/universe.csv` 里删掉。
 
 **Q：想换股票池**
 `--index sh000905`（中证500）等，或改 `config.toml` 的 `universe_index`。换池后需要重新 `fetch`。
