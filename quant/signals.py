@@ -14,21 +14,22 @@ from .strategies import STRATEGIES
 
 
 def market_status(cfg: Config, dates: pd.DatetimeIndex) -> dict:
+    """市场状态：直接按当前数据算，不依赖上次回测落下的 regime_state.csv。
+
+    这样「只选股」也能拿到真实状态，而不是默认 OFF / 0 天。
+    """
     idx = datasource.load_index_close(cfg).reindex(dates).ffill()
     window = cfg.regime_window
     ma = idx.rolling(window).mean()
 
-    cur, since, ndays = 0, str(dates[-1].date()), 0
-    path = cfg.data_path / "regime_state.csv"
-    if path.exists():
-        st = pd.read_csv(path, parse_dates=["date"]).set_index("date")["regime_on"]
-        arr = st.to_numpy()
-        cur = int(arr[-1])
-        j = len(arr) - 1
-        while j > 0 and arr[j] == arr[j - 1]:
-            j -= 1
-        since = str(st.index[j].date())
-        ndays = len(arr) - j
+    state = engine.build_regime(cfg, dates)          # 顺带刷新 data/regime_state.csv
+    arr = state.to_numpy()
+    cur = int(arr[-1]) if len(arr) else 0
+    j = len(arr) - 1
+    while j > 0 and arr[j] == arr[j - 1]:
+        j -= 1
+    since = str(dates[j].date()) if len(arr) else str(dates[-1].date())
+    ndays = len(arr) - j if len(arr) else 0
     return {
         "on": bool(cur == 1),
         "since": since,

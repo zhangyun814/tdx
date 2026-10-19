@@ -2,6 +2,7 @@
 """命令行入口。
 
 用法：
+    python run.py pick                # 只选股：补数据 + 出今日候选 + 看板（日常用这个）
     python run.py all                 # 抓数 + 回测 + 检验 + 信号 + 报告（一条命令全流程）
     python run.py fetch               # 只更新数据（成分股 + 日线 + 面板）
     python run.py backtest            # 只用本地数据重跑回测
@@ -32,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    p.add_argument("command", choices=["all", "fetch", "backtest", "analysis", "signal",
+    p.add_argument("command", choices=["pick", "all", "fetch", "backtest", "analysis", "signal",
                                        "report", "board", "history", "doctor"],
                    help="要执行的动作")
     p.add_argument("--config", default=None, help="配置文件路径（默认 config.toml）")
@@ -86,7 +87,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        if args.command == "fetch":
+        if args.command == "pick":
+            pipeline.cmd_pick(cfg, skip_fetch=args.skip_fetch)
+
+        elif args.command == "fetch":
             pipeline.cmd_fetch(cfg, workers=args.workers)
 
         elif args.command == "backtest":

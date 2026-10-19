@@ -148,6 +148,56 @@ def cmd_board(cfg: Config) -> Path:
     return out
 
 
+def _pad(text: object, width: int) -> str:
+    """按显示宽度对齐（中文算 2 格）。"""
+    text = str(text)
+    w = sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
+    return text + " " * max(0, width - w)
+
+
+def print_picks(cfg: Config, payload: dict) -> None:
+    """把当日候选直接打到终端，不用打开网页。"""
+    st = payload["status"]
+    snap = payload["snapshot"]
+    state = "ON 允许开新仓" if st["on"] else "OFF 禁止开新仓（下面都只能待命）"
+    print(f"\n信号日期 {snap['as_of']}　市场状态 {state}")
+    print(f"  基准指数 {st['index_close']} vs MA{st['window']} {st['ma']}"
+          f"（{st['gap_pct']:+.2f}%），已持续 {st['days']} 个交易日（自 {st['since']}）")
+
+    for s in snap["strategies"]:
+        head = f"\n{s['key']} {s['name']}　触发 {s['n_signal']} 只，最多买 {cfg.max_positions} 只"
+        print(head)
+        if not s["candidates"]:
+            print("  （今日无信号）")
+            continue
+        print("  " + _pad("排名", 5) + _pad("代码", 9) + _pad("名称", 12)
+              + _pad("收盘", 10) + _pad("涨幅", 9) + _pad("分数", 9) + "动作")
+        for c in s["candidates"][:cfg.max_positions]:
+            score = "—" if c["score"] is None else f"{c['score']:.3f}"
+            action = "买入" if st["on"] else "待命"
+            print("  " + _pad(c["rank"], 5) + _pad(c["code"], 9) + _pad(c["name"] or "—", 12)
+                  + _pad(f"{c['close']:.2f}", 10) + _pad(f"{c['day_chg_pct']:+.2f}%", 9)
+                  + _pad(score, 9) + action)
+        if s["n_signal"] > cfg.max_positions:
+            rest = [c for c in s["candidates"][cfg.max_positions:]]
+            print(f"  …另 {len(rest)} 只排队：" +
+                  "、".join(f"{c['code']} {c['name'] or ''}".strip() for c in rest[:8])
+                  + ("…" if len(rest) > 8 else ""))
+
+
+def cmd_pick(cfg: Config, skip_fetch: bool = False) -> None:
+    """只选股：增量补数据 → 生成信号 → 打印候选 → 渲染看板。"""
+    t0 = time.time()
+    if skip_fetch:
+        _step("跳过抓数，直接使用本地数据")
+    else:
+        cmd_fetch(cfg)
+    payload = cmd_signal(cfg)
+    cmd_board(cfg)
+    print_picks(cfg, payload)
+    print(f"\n✅ 选股完成，用时 {time.time() - t0:.1f}s")
+
+
 def cmd_all(cfg: Config, skip_fetch: bool = False, no_archive: bool = False) -> None:
     t0 = time.time()
     if not skip_fetch:
@@ -181,9 +231,7 @@ def cmd_history(cfg: Config, limit: int = 15) -> None:
 
     def pad(text: str, width: int) -> str:
         """按显示宽度对齐（中文算 2 格）。"""
-        text = str(text)
-        w = sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
-        return text + " " * max(0, width - w)
+        return _pad(text, width)
 
     df = pd.read_csv(path, encoding="utf-8")
     show = df.tail(limit)
