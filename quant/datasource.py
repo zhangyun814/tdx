@@ -141,10 +141,33 @@ def parse_kline_file(path: Path) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-def _download_one(cfg: Config, code: str) -> tuple[str, bool, str]:
+def _last_bar_date(path: Path) -> str:
+    """快速读取一个日线文件里的最新交易日。
+
+    数据源文件是新在前、老在后（也可能被别的数据源改成升序），
+    所以头尾各扫一段取日期最大值，两种排列都能覆盖，且不用解析整份文件。
+    """
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as fh:
+            head = fh.read(8192).decode("utf-8", errors="ignore")
+            if size > 8192:
+                fh.seek(max(0, size - 8192))
+                tail = fh.read().decode("utf-8", errors="ignore")
+            else:
+                tail = ""
+    except OSError:
+        return ""
+    dates = re.findall(r"\|\s*(\d{4}-\d{2}-\d{2})\s*\|", head + tail)
+    return max(dates) if dates else ""
+
+
+def _download_one(cfg: Config, code: str, target_date: str = "") -> tuple[str, bool, str]:
+    """下载单只票。target_date 为「应达到的最新交易日」，缓存落后于它才重下。"""
     target = cfg.raw_path / f"{code}.md"
     if target.exists() and target.stat().st_size > 2000 and not cfg.refresh:
-        return code, True, "cached"
+        if not target_date or _last_bar_date(target) >= target_date:
+            return code, True, "cached"
     for attempt in range(2):
         try:
             text = _run(cfg, ["kline", code, "--period", "day",
@@ -159,19 +182,46 @@ def _download_one(cfg: Config, code: str) -> tuple[str, bool, str]:
     return code, False, "解析为空"
 
 
+def _refresh_benchmark(cfg: Config) -> str:
+    """先刷新基准指数（只有 1 只，成本极低），用它最后一天当作「应有最新日」。"""
+    code = cfg.universe_index
+    target = cfg.raw_path / f"{code}.md"
+    try:
+        text = _run(cfg, ["kline", code, "--period", "day",
+                          "--limit", str(cfg.max_bars), "--fq", "qfq"], timeout=120)
+        target.write_text(text, encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        if not target.exists():
+            raise DataSourceError(f"基准指数 {code} 下载失败：{exc}") from exc
+        print(f"  ⚠️ 基准指数刷新失败，沿用本地文件（{exc}）")
+    return _last_bar_date(target)
+
+
 def fetch_klines(cfg: Config, codes: list[str], workers: int = 6) -> dict[str, str]:
-    """并发下载日线，返回 {code: 状态}。已有文件默认跳过。"""
+    """并发下载日线，返回 {code: 状态}。
+
+    默认增量更新：缓存文件的最新日期已经追平基准指数最后一个交易日就跳过，
+    落后才重下 —— 这样每天跑一次既不会重复下载，也不会拿到过期数据。
+    """
+    target_date = "" if cfg.refresh else _refresh_benchmark(cfg)
+    if target_date:
+        print(f"  应有最新交易日：{target_date}（基准 {cfg.universe_index}）")
+
     status: dict[str, str] = {}
     total = len(codes)
     done = 0
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        futures = {pool.submit(_download_one, cfg, c): c for c in codes}
+        futures = {pool.submit(_download_one, cfg, c, target_date): c for c in codes}
         for fut in as_completed(futures):
             code, ok, msg = fut.result()
             status[code] = ("ok " + msg) if ok else ("fail " + msg)
             done += 1
             if done % 25 == 0 or done == total:
                 print(f"  下载进度 {done}/{total}", flush=True)
+
+    cached = sum(1 for s in status.values() if s.endswith("cached"))
+    if cached:
+        print(f"  复用缓存 {cached} 只，更新 {total - cached} 只")
     bad = [c for c, s in status.items() if s.startswith("fail")]
     if bad:
         print(f"  ⚠️ {len(bad)} 只下载失败：{bad[:8]}{' ...' if len(bad) > 8 else ''}")

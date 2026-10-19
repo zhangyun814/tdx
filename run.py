@@ -9,6 +9,7 @@
     python run.py signal              # 当日信号快照
     python run.py report              # 渲染对比报告
     python run.py board               # 渲染信号看板
+    python run.py history             # 查看历次运行摘要（年化/回撤/信号数变化）
     python run.py doctor              # 环境自检（数据源 / 数据 / 输出目录）
 """
 
@@ -32,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=__doc__,
     )
     p.add_argument("command", choices=["all", "fetch", "backtest", "analysis", "signal",
-                                       "report", "board", "doctor"],
+                                       "report", "board", "history", "doctor"],
                    help="要执行的动作")
     p.add_argument("--config", default=None, help="配置文件路径（默认 config.toml）")
     p.add_argument("--start", default=None, help="评估起点，如 2022-07-01")
@@ -40,8 +41,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--index", default=None, help="股票池指数代码，如 sh000300")
     p.add_argument("--max-positions", type=int, default=None, help="最大持仓数量")
     p.add_argument("--regime-window", type=int, default=None, help="市场状态均线窗口")
-    p.add_argument("--refresh", action="store_true", help="强制重新下载已有日线")
+    p.add_argument("--refresh", action="store_true", help="强制重新下载全部日线（默认只补落后的）")
     p.add_argument("--skip-fetch", action="store_true", help="all 时跳过抓数")
+    p.add_argument("--no-archive", action="store_true", help="all 时不归档历史快照")
     p.add_argument("--workers", type=int, default=6, help="下载并发数")
     return p
 
@@ -102,8 +104,12 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "board":
             pipeline.cmd_board(cfg)
 
+        elif args.command == "history":
+            pipeline.cmd_history(cfg)
+
         elif args.command == "all":
-            pipeline.cmd_all(cfg, skip_fetch=args.skip_fetch)
+            pipeline.cmd_all(cfg, skip_fetch=args.skip_fetch,
+                             no_archive=args.no_archive)
     except KeyboardInterrupt:
         print("\n已中断。")
         return 130

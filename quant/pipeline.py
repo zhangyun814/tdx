@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import pickle
 import time
+import unicodedata
 from pathlib import Path
 
 import pandas as pd
 
-from . import analysis, board, datasource, engine, report, signals
+from . import analysis, archive, board, datasource, engine, report, signals
 from .config import Config
 from .strategies import STRATEGIES, build_signals
 
@@ -147,7 +148,7 @@ def cmd_board(cfg: Config) -> Path:
     return out
 
 
-def cmd_all(cfg: Config, skip_fetch: bool = False) -> None:
+def cmd_all(cfg: Config, skip_fetch: bool = False, no_archive: bool = False) -> None:
     t0 = time.time()
     if not skip_fetch:
         cmd_fetch(cfg)
@@ -156,7 +157,44 @@ def cmd_all(cfg: Config, skip_fetch: bool = False) -> None:
 
     runtime = cmd_backtest(cfg)
     analysis_payload = cmd_analysis(cfg, runtime)
-    cmd_signal(cfg, analysis_payload)
+    signal_payload = cmd_signal(cfg, analysis_payload)
     cmd_report(cfg, runtime)
     cmd_board(cfg)
+
+    if not no_archive:
+        _step("归档本次运行")
+        info = archive.summarize(runtime, signal_payload)
+        gap = archive.diff_last(cfg, info)
+        archive.snapshot_run(cfg, runtime, signal_payload)
+        if gap:
+            print(f"  对比上次：{gap}")
+        print(f"  历史索引 → {cfg.reports_path / 'history.csv'}")
+
     print(f"\n✅ 全部完成，用时 {time.time() - t0:.1f}s，结果在 {cfg.reports_path}")
+
+
+def cmd_history(cfg: Config, limit: int = 15) -> None:
+    path = cfg.reports_path / "history.csv"
+    if not path.exists():
+        print("还没有历史记录，先跑一次 `python run.py all`。")
+        return
+
+    def pad(text: str, width: int) -> str:
+        """按显示宽度对齐（中文算 2 格）。"""
+        text = str(text)
+        w = sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
+        return text + " " * max(0, width - w)
+
+    df = pd.read_csv(path, encoding="utf-8")
+    show = df.tail(limit)
+    print(f"\n历次运行（最近 {len(show)} 次，共 {len(df)} 次）\n")
+    print(pad("运行时间", 20) + pad("数据截至", 12) + pad("状态", 6)
+          + pad("年化", 9) + pad("回撤", 9) + pad("夏普", 8) + pad("信号", 6) + "最优策略")
+    print("-" * 92)
+    for _, r in show.iterrows():
+        state = "ON" if str(r.get("regime_on")) == "True" else "OFF"
+        print(pad(r["run_at"], 20) + pad(r["eval_end"], 12) + pad(state, 6)
+              + pad(f"{r['avg_annual_pct']:.2f}%", 9) + pad(f"{r['avg_dd_pct']:.2f}%", 9)
+              + pad(f"{r['avg_sharpe']:.3f}", 8) + pad(int(r["n_signals"]), 6)
+              + f"{r['best_strategy']}（年化 {r['best_annual_pct']:.2f}%）")
+    print(f"\n快照目录：{cfg.reports_path / 'runs'}")

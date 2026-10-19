@@ -54,6 +54,7 @@ node_bin    = "/path/to/node"
 | `python run.py signal` | 当日信号快照（md + json） | 约 2 秒 |
 | `python run.py report` | 渲染对比报告（仪表盘 + 3 张图） | 约 3 秒 |
 | `python run.py board` | 渲染信号看板 | 约 1 秒 |
+| `python run.py history` | 查看历次运行摘要（年化 / 回撤 / 信号数变化） | 即时 |
 | `python run.py doctor` | 环境自检 | 即时 |
 
 常用参数（对所有命令生效）：
@@ -63,11 +64,53 @@ python run.py all --start 2023-01-01 --end 2025-12-31   # 改评估区间
 python run.py all --index sh000905                      # 换成中证500 成分股
 python run.py backtest --max-positions 8                # 改持仓上限
 python run.py backtest --regime-window 120              # 改市场状态均线
-python run.py fetch --refresh                           # 强制重新下载
+python run.py fetch --refresh                           # 强制全量重下（约 3 分钟）
 python run.py all --skip-fetch                          # 跳过抓数，直接用本地数据
+python run.py all --no-archive                          # 不留历史快照，只更新最新结果
 ```
 
 > 数据每天都在变，`eval_end` 默认取「数据里最后一个交易日」，所以不需要手动改日期。
+
+---
+
+## 2.5 重复运行会不会覆盖上一次结果？
+
+分两部分看：
+
+**报告（`reports/` 根目录）——会覆盖。** `regime_report.html`、`signal_board.html`、各策略的
+`_equity.csv` / `_trades.csv` / `_summary.json` 都是固定文件名，每次运行原地重写。
+根目录永远代表「最新一次」，方便你直接打开。
+
+**历史快照——不会覆盖。** 每次 `all` 结束后会自动把这一批产物复制一份到
+`reports/runs/<年月日_时分秒>/`，并在 `reports/history.csv` 追加一行摘要
+（数据截至日、市场状态、五策略平均年化/回撤/夏普、最优策略、信号数）：
+
+```bash
+python run.py history          # 打印历史表，看每次跑出来的东西怎么变的
+```
+
+```
+运行时间            数据截至    状态  年化     回撤     夏普    信号  最优策略
+2026-10-19 21:39:17 2026-10-19  OFF   12.75%   27.04%   0.569   87    S2 唐奇安通道突破（年化 24.40%）
+2026-10-16 21:30:00 2026-10-16  OFF   11.42%   27.20%   0.493   74    S2 唐奇安通道突破（年化 22.80%）
+```
+
+- 只留最近 `keep_runs` 份（`config.toml` 里改，默认 60），更早的自动删掉
+- 不想归档就加 `--no-archive`；想手动清理直接删 `reports/runs/`
+- **注意**：数字变了先看 `数据截至` 是否变了。同一份数据连跑两次结果完全一致；
+  数据一更新（多了一根 K 线、补了一只停牌股），历史区间跟着延长，年化/夏普就会小幅漂移
+
+---
+
+## 2.6 数据会不会过期？
+
+不会。`fetch` 默认是**增量更新**而不是「有文件就跳过」：
+
+1. 先刷新基准指数（只有 1 只，成本极低），拿它的最后一个交易日当作「应有最新日」
+2. 逐只检查 `data/raw/*.md` 里的最新日期，**已经追平就复用，落后才重下**
+3. 所以每天跑一次既不会重复下载 300 只票，也不会拿着上周的数据算出「今日信号」
+
+代价是每天第一次跑会比纯缓存慢一些（要重下当天有更新的票）；`--refresh` 才会无条件全量重下。
 
 ---
 
@@ -88,6 +131,7 @@ a-share-quant/
 │   ├── signals.py          # 当日信号快照
 │   ├── report.py           # 对比报告（图表 + 仪表盘）
 │   ├── board.py            # 信号看板 HTML
+│   ├── archive.py          # 运行归档（历史快照 + history.csv）
 │   ├── pipeline.py         # 流程编排
 │   └── vendor/             # 第三方渲染组件（见第 9 节）
 ├── data/                   # 行情数据（不进 git）
@@ -96,6 +140,10 @@ a-share-quant/
 │   ├── panel.csv.gz        # 合并后的长表面板
 │   └── regime_state.csv    # 逐日市场状态
 └── reports/                # 回测与报告产物（不进 git）
+    ├── regime_report.html  # 最新一次的对比报告
+    ├── signal_board.html   # 最新一次的信号看板
+    ├── history.csv         # 历次运行摘要索引
+    └── runs/<时间戳>/      # 每次运行的历史快照
 ```
 
 ---

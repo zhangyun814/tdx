@@ -47,6 +47,7 @@ class Config:
     # ---- 输出 ----
     data_dir: str = ""              # 留空 = 项目下 data/
     reports_dir: str = ""           # 留空 = 项目下 reports/
+    keep_runs: int = 60             # reports/runs/ 保留几份历史快照，0 = 不清理
 
     # ------------------------------------------------------------------
     @property

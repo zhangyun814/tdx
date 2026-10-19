@@ -18,7 +18,7 @@ universe_index = "sh000300"
 max_bars = 1300
 # 少于该根数直接剔除（次新股指标不完整）
 min_bars = 250
-# true = 每次都重新下载（默认 false，已有文件跳过，增量更新更快）
+# true = 强制全量重下（默认 false = 增量：缓存已追平最新交易日就复用，落后才重下）
 refresh = false
 
 [backtest]
@@ -56,3 +56,5 @@ random_trials = 200
 # 留空 = 项目下 data/ 与 reports/
 data_dir = ""
 reports_dir = ""
+# reports/runs/ 保留几份历史快照（0 = 不清理，一直留着）
+keep_runs = 60
